@@ -887,6 +887,7 @@ describe("gateway hot reload", () => {
     let registryEntries: TestRegistryEntry[] = [
       { provider: "ollama", id: "existing", name: "Existing" },
     ];
+    resetModelCatalogCacheForTest();
     __setModelCatalogImportForTest(
       async () =>
         ({
@@ -898,7 +899,6 @@ describe("gateway hot reload", () => {
           },
         }) as unknown as PiDiscoveryRuntimeModule,
     );
-    resetModelCatalogCacheForTest();
 
     try {
       await withGatewayServer(async () => {
@@ -935,7 +935,7 @@ describe("gateway hot reload", () => {
           },
         };
 
-        const before = await buildModelsProviderData(baseConfig);
+        const before = await buildModelsProviderData(baseConfig, undefined, { view: "all" });
         expect([...(before.byProvider.get("ollama") ?? new Set()).values()]).toEqual(["existing"]);
 
         registryEntries = [
@@ -971,7 +971,7 @@ describe("gateway hot reload", () => {
               },
             }) as unknown as PiDiscoveryRuntimeModule,
         );
-        const after = await buildModelsProviderData(nextConfig);
+        const after = await buildModelsProviderData(nextConfig, undefined, { view: "all" });
         expect([...(after.byProvider.get("ollama") ?? new Set()).values()]).toEqual([
           "existing",
           "glm-5.1:cloud",
