@@ -117,11 +117,13 @@ export const googlechatPlugin = createChatChannelPlugin({
     configSchema: buildChannelConfigSchema(GoogleChatConfigSchema),
     config: {
       ...googleChatConfigAdapter,
-      isConfigured: (account) => account.credentialSource !== "none",
+      isConfigured: (account) =>
+        account.credentialSource !== "none" || account.config.ingestionMode === "pubsub",
       describeAccount: (account) =>
         describeAccountSnapshot({
           account,
-          configured: account.credentialSource !== "none",
+          configured:
+            account.credentialSource !== "none" || account.config.ingestionMode === "pubsub",
           extra: {
             credentialSource: account.credentialSource,
           },

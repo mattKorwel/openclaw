@@ -46,20 +46,54 @@ Status: ready for DMs + spaces via Google Chat API webhooks (HTTP only).
 7. Configure OpenClaw with the service account path + webhook audience:
    - Env: `GOOGLE_CHAT_SERVICE_ACCOUNT_FILE=/path/to/service-account.json`
    - Or config: `channels.googlechat.serviceAccountFile: "/path/to/service-account.json"`.
-8. Set the webhook audience type + value (matches your Chat app config).
-9. Start the gateway. Google Chat will POST to your webhook path.
+   8. Set the webhook audience type + value (matches your Chat app config).
+   9. Start the gateway. Google Chat will POST to your webhook path.
 
-## Add to Google Chat
+   ## Ingestion Mode: Pub/Sub (Advanced)
 
-Once the gateway is running and your email is added to the visibility list:
+   For environments where inbound HTTP webhooks are prohibited (e.g., restricted GCP VPCs), OpenClaw supports message ingestion via **Google Cloud Pub/Sub**.
 
-1. Go to [Google Chat](https://chat.google.com/).
-2. Click the **+** (plus) icon next to **Direct Messages**.
-3. In the search bar (where you usually add people), type the **App name** you configured in the Google Cloud Console.
-   - **Note**: The bot will _not_ appear in the "Marketplace" browse list because it is a private app. You must search for it by name.
-4. Select your bot from the results.
-5. Click **Add** or **Chat** to start a 1:1 conversation.
-6. Send "Hello" to trigger the assistant!
+   ### 1. Setup GCP Resources
+   1. Create a Pub/Sub **Topic** (e.g., `google-chat-events`).
+   2. Create a **Pull Subscription** for that topic (e.g., `openclaw-subscription`).
+   3. Ensure the Service Account used by OpenClaw has the **Pub/Sub Subscriber** role (`roles/pubsub.subscriber`) on the subscription.
+   4. In the [Google Cloud Console Chat Configuration](https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat), under **Connection settings**, select **Cloud Pub/Sub**.
+   5. Select the topic you created in step 1.
+
+   ### 2. Configure OpenClaw
+
+   Set `ingestionMode: "pubsub"` and provide the subscription details:
+
+   ```json5
+   {
+     channels: {
+       googlechat: {
+         enabled: true,
+         ingestionMode: "pubsub",
+         pubsub: {
+           projectId: "your-project-id",
+           subscriptionId: "openclaw-subscription",
+         },
+         serviceAccountFile: "/path/to/service-account.json",
+         // ... rest of config
+       },
+     },
+   }
+   ```
+
+   OpenClaw will automatically start a background listener that pulls events from the subscription. This eliminates the need for a public URL or reverse proxy.
+
+   ## Add to Google Chat
+
+   Once the gateway is running and your email is added to the visibility list:
+
+8. Go to [Google Chat](https://chat.google.com/).
+9. Click the **+** (plus) icon next to **Direct Messages**.
+10. In the search bar (where you usually add people), type the **App name** you configured in the Google Cloud Console.
+    - **Note**: The bot will _not_ appear in the "Marketplace" browse list because it is a private app. You must search for it by name.
+11. Select your bot from the results.
+12. Click **Add** or **Chat** to start a 1:1 conversation.
+13. Send "Hello" to trigger the assistant!
 
 ## Public URL (Webhook-only)
 

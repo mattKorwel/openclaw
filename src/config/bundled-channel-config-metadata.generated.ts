@@ -4329,6 +4329,28 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
         configWrites: {
           type: "boolean",
         },
+        ingestionMode: {
+          type: "string",
+          enum: ["webhook", "pubsub"],
+        },
+        pubsub: {
+          type: "object",
+          properties: {
+            projectId: {
+              type: "string",
+            },
+            topicId: {
+              type: "string",
+            },
+            subscriptionId: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+        clientEmail: {
+          type: "string",
+        },
         allowBots: {
           type: "boolean",
         },
@@ -4706,6 +4728,28 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
               },
               configWrites: {
                 type: "boolean",
+              },
+              ingestionMode: {
+                type: "string",
+                enum: ["webhook", "pubsub"],
+              },
+              pubsub: {
+                type: "object",
+                properties: {
+                  projectId: {
+                    type: "string",
+                  },
+                  topicId: {
+                    type: "string",
+                  },
+                  subscriptionId: {
+                    type: "string",
+                  },
+                },
+                additionalProperties: false,
+              },
+              clientEmail: {
+                type: "string",
               },
               allowBots: {
                 type: "boolean",

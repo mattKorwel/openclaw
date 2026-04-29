@@ -7,6 +7,24 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "ingestionMode": {
+        "type": "string",
+        "enum": ["webhook", "pubsub"],
+        "default": "webhook"
+      },
+      "pubsub": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "projectId": { "type": "string" },
+          "topicId": { "type": "string" },
+          "subscriptionId": { "type": "string" }
+        }
+      },
+      "clientEmail": {
+        "type": "string"
+      }
+    }
   }
 }

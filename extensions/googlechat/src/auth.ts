@@ -1,4 +1,4 @@
-import { GoogleAuth, OAuth2Client } from "google-auth-library";
+import { GoogleAuth, OAuth2Client, Impersonated, type AuthClient } from "google-auth-library";
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/text-runtime";
 import type { ResolvedGoogleChatAccount } from "./accounts.js";
 
@@ -17,13 +17,16 @@ const verifyClient = new OAuth2Client();
 let cachedCerts: { fetchedAt: number; certs: Record<string, string> } | null = null;
 
 function buildAuthKey(account: ResolvedGoogleChatAccount): string {
+  let base = "none";
   if (account.credentialsFile) {
-    return `file:${account.credentialsFile}`;
+    base = `file:${account.credentialsFile}`;
+  } else if (account.credentials) {
+    base = `inline:${JSON.stringify(account.credentials)}`;
   }
-  if (account.credentials) {
-    return `inline:${JSON.stringify(account.credentials)}`;
+  if (account.config.clientEmail) {
+    return `${base}:impersonate:${account.config.clientEmail}`;
   }
-  return "none";
+  return base;
 }
 
 function getAuthInstance(account: ResolvedGoogleChatAccount): GoogleAuth {
@@ -42,21 +45,19 @@ function getAuthInstance(account: ResolvedGoogleChatAccount): GoogleAuth {
     }
   };
 
+  const options: {
+    scopes: string[];
+    keyFile?: string;
+    credentials?: Record<string, unknown>;
+  } = { scopes: [CHAT_SCOPE] };
+
   if (account.credentialsFile) {
-    const auth = new GoogleAuth({ keyFile: account.credentialsFile, scopes: [CHAT_SCOPE] });
-    authCache.set(account.accountId, { key, auth });
-    evictOldest();
-    return auth;
+    options.keyFile = account.credentialsFile;
+  } else if (account.credentials) {
+    options.credentials = account.credentials;
   }
 
-  if (account.credentials) {
-    const auth = new GoogleAuth({ credentials: account.credentials, scopes: [CHAT_SCOPE] });
-    authCache.set(account.accountId, { key, auth });
-    evictOldest();
-    return auth;
-  }
-
-  const auth = new GoogleAuth({ scopes: [CHAT_SCOPE] });
+  const auth = new GoogleAuth(options);
   authCache.set(account.accountId, { key, auth });
   evictOldest();
   return auth;
@@ -66,7 +67,17 @@ export async function getGoogleChatAccessToken(
   account: ResolvedGoogleChatAccount,
 ): Promise<string> {
   const auth = getAuthInstance(account);
-  const client = await auth.getClient();
+  let client = await auth.getClient();
+
+  // If clientEmail is provided and we're using ADC (no direct keys), wrap in Impersonated client
+  if (account.config.clientEmail && !account.credentialsFile && !account.credentials) {
+    client = new Impersonated({
+      sourceClient: client as AuthClient,
+      targetPrincipal: account.config.clientEmail,
+      targetScopes: [CHAT_SCOPE],
+    });
+  }
+
   const access = await client.getAccessToken();
   const token = typeof access === "string" ? access : access?.token;
   if (!token) {
