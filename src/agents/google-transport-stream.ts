@@ -27,6 +27,9 @@ import {
 type GoogleTransportModel = Model<"google-generative-ai"> & {
   headers?: Record<string, string>;
   provider: string;
+  googleApiMode?: "google-generative-ai" | "vertex-ai";
+  projectId?: string;
+  region?: string;
 };
 
 type GoogleThinkingLevel = "MINIMAL" | "LOW" | "MEDIUM" | "HIGH";
@@ -182,8 +185,19 @@ function resolveGoogleModelPath(modelId: string): string {
   return `models/${modelId}`;
 }
 
-function buildGoogleRequestUrl(model: GoogleTransportModel): string {
+function buildGoogleRequestUrl(model: GoogleTransportModel, apiKey?: string): string {
   const baseUrl = normalizeGoogleApiBaseUrl(model.baseUrl);
+
+  // If we have an OAuth token (ya29.), we must use the Vertex AI endpoint structure.
+  // This is because AI Studio (generativelanguage) does not accept OAuth tokens.
+  if (apiKey?.startsWith("ya29.")) {
+    const project = process.env.GOOGLE_CLOUD_PROJECT || "mjk-local-gchat-testing";
+    const region = process.env.GOOGLE_CLOUD_REGION || "us-central1";
+
+    // Vertex AI URL format (streaming)
+    return `https://${region}-aiplatform.googleapis.com/v1/projects/${project}/locations/${region}/publishers/google/${resolveGoogleModelPath(model.id)}:streamGenerateContent?alt=sse`;
+  }
+
   return `${baseUrl}/${resolveGoogleModelPath(model.id)}:streamGenerateContent?alt=sse`;
 }
 
@@ -612,7 +626,7 @@ export function createGoogleGenerativeAiTransportStreamFn(): StreamFn {
         if (nextParams !== undefined) {
           params = nextParams as GoogleGenerateContentRequest;
         }
-        const response = await fetch(buildGoogleRequestUrl(model), {
+        const response = await fetch(buildGoogleRequestUrl(model, apiKey), {
           method: "POST",
           headers: buildGoogleHeaders(model, apiKey, options?.headers),
           body: JSON.stringify(params),

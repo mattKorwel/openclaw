@@ -129,6 +129,9 @@ const explicitNeverBundleDependencies = [
   "@lancedb/lancedb",
   "@matrix-org/matrix-sdk-crypto-nodejs",
   "matrix-js-sdk",
+  "google-auth-library",
+  "@google-cloud/pubsub",
+  "google-gax",
   ...bundledPluginRuntimeDependencies,
 ].toSorted((left, right) => left.localeCompare(right));
 

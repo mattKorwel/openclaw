@@ -1,18 +1,29 @@
 /**
  * Shared Gemini authentication utilities.
  *
- * Supports both traditional API keys and OAuth JSON format.
+ * Supports traditional API keys, OAuth JSON format, and raw bearer tokens.
  */
 
 /**
  * Parse Gemini API key and return appropriate auth headers.
  *
  * OAuth format: `{"token": "...", "projectId": "..."}`
+ * Bearer token: `ya29....`
  *
- * @param apiKey - Either a traditional API key string or OAuth JSON
+ * @param apiKey - Either a traditional API key string, OAuth JSON, or raw token
  * @returns Headers object with appropriate authentication
  */
 export function parseGeminiAuth(apiKey: string): { headers: Record<string, string> } {
+  // If it starts with 'ya29.' it's a Google access token
+  if (apiKey.startsWith("ya29.")) {
+    return {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
   // Try parsing as OAuth JSON format
   if (apiKey.startsWith("{")) {
     try {

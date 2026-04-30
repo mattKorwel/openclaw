@@ -9,11 +9,14 @@ import {
 } from "./api.js";
 import { GOOGLE_GEMINI_PROVIDER_HOOKS } from "./provider-hooks.js";
 import { isModernGoogleModel, resolveGoogleGeminiForwardCompatModel } from "./provider-models.js";
+import { resolveGoogleAdcToken, resolveGoogleMetadataApiKey } from "./src/adc-auth.js";
+
+const GOOGLE_VIRTUAL_ADC_KEY = "google:gcp-adc-virtual-key";
 
 export function registerGoogleProvider(api: OpenClawPluginApi) {
   api.registerProvider({
     id: "google",
-    label: "Google AI Studio",
+    label: "Google AI Studio / Vertex AI",
     docsPath: "/providers/models",
     hookAliases: ["google-antigravity", "google-vertex"],
     envVars: ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
@@ -39,6 +42,33 @@ export function registerGoogleProvider(api: OpenClawPluginApi) {
         },
       }),
     ],
+    resolveSyntheticAuth: () => {
+      // Synchronously return a virtual key to signal that we want to handle ADC.
+      // This bypasses the async limitation of resolveSyntheticAuth.
+      return {
+        apiKey: GOOGLE_VIRTUAL_ADC_KEY,
+        mode: "token",
+        source: "gcp-adc",
+      };
+    },
+    prepareRuntimeAuth: async (ctx) => {
+      if (ctx.apiKey !== GOOGLE_VIRTUAL_ADC_KEY) {
+        return undefined;
+      }
+
+      // Now we are in an async hook, resolve the real token.
+      const metadataApiKey = await resolveGoogleMetadataApiKey();
+      if (metadataApiKey) {
+        return { apiKey: metadataApiKey };
+      }
+
+      const token = await resolveGoogleAdcToken();
+      if (token) {
+        return { apiKey: token };
+      }
+
+      throw new Error("GCP ADC authentication failed: No metadata API key or ADC token found.");
+    },
     normalizeTransport: ({ api, baseUrl }) => resolveGoogleGenerativeAiTransport({ api, baseUrl }),
     normalizeConfig: ({ provider, providerConfig }) =>
       normalizeGoogleProviderConfig(provider, providerConfig),

@@ -34,6 +34,12 @@ vi.mock("./monitor-shared.js", () => ({
   computeGoogleChatMediaMaxMb: () => 20,
 }));
 
+vi.mock("./auth.js", () => ({
+  getGoogleAuthClient: vi.fn().mockResolvedValue({
+    getAccessToken: vi.fn().mockResolvedValue({ token: "test-token" }),
+  }),
+}));
+
 describe("monitor-pubsub", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -42,11 +48,12 @@ describe("monitor-pubsub", () => {
 
   it("should start pubsub listener and process messages", async () => {
     const abortController = new AbortController();
-    const monitorPromise = monitorGoogleChatPubSub({
+    await monitorGoogleChatPubSub({
       account: {
         accountId: "test-account",
         config: {
           pubsub: {
+            projectId: "test-project",
             subscriptionId: "test-sub",
           },
         },
@@ -86,22 +93,27 @@ describe("monitor-pubsub", () => {
     expect(processMessageWithPipelineMock).toHaveBeenCalledWith(
       expect.objectContaining({
         event: expect.objectContaining({ type: "MESSAGE" }),
+        mediaMaxMb: 20,
       }),
     );
     expect(mockMessage.ack).toHaveBeenCalled();
 
     abortController.abort();
-    await monitorPromise;
     expect(subscriptionMock.close).toHaveBeenCalled();
   });
 
   it("should handle invalid JSON message data", async () => {
     const abortController = new AbortController();
     const runtimeErrorMock = vi.fn();
-    const monitorPromise = monitorGoogleChatPubSub({
+    await monitorGoogleChatPubSub({
       account: {
         accountId: "test-account",
-        config: { pubsub: { subscriptionId: "test-sub" } },
+        config: {
+          pubsub: {
+            projectId: "test-project",
+            subscriptionId: "test-sub",
+          },
+        },
       } as any,
       config: {} as any,
       runtime: { log: vi.fn(), error: runtimeErrorMock } as any,
@@ -133,15 +145,19 @@ describe("monitor-pubsub", () => {
     );
 
     abortController.abort();
-    await monitorPromise;
   });
 
   it("should ignore non-MESSAGE events", async () => {
     const abortController = new AbortController();
-    const monitorPromise = monitorGoogleChatPubSub({
+    await monitorGoogleChatPubSub({
       account: {
         accountId: "test-account",
-        config: { pubsub: { subscriptionId: "test-sub" } },
+        config: {
+          pubsub: {
+            projectId: "test-project",
+            subscriptionId: "test-sub",
+          },
+        },
       } as any,
       config: {} as any,
       runtime: { log: vi.fn(), error: vi.fn() } as any,
@@ -170,6 +186,5 @@ describe("monitor-pubsub", () => {
     expect(mockMessage.ack).toHaveBeenCalled();
 
     abortController.abort();
-    await monitorPromise;
   });
 });

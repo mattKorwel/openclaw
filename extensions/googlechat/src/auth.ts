@@ -63,9 +63,10 @@ function getAuthInstance(account: ResolvedGoogleChatAccount): GoogleAuth {
   return auth;
 }
 
-export async function getGoogleChatAccessToken(
+export async function getGoogleAuthClient(
   account: ResolvedGoogleChatAccount,
-): Promise<string> {
+  scopes: string[],
+): Promise<AuthClient> {
   const auth = getAuthInstance(account);
   let client = await auth.getClient();
 
@@ -74,10 +75,16 @@ export async function getGoogleChatAccessToken(
     client = new Impersonated({
       sourceClient: client as AuthClient,
       targetPrincipal: account.config.clientEmail,
-      targetScopes: [CHAT_SCOPE],
+      targetScopes: scopes,
     });
   }
+  return client as AuthClient;
+}
 
+export async function getGoogleChatAccessToken(
+  account: ResolvedGoogleChatAccount,
+): Promise<string> {
+  const client = await getGoogleAuthClient(account, [CHAT_SCOPE]);
   const access = await client.getAccessToken();
   const token = typeof access === "string" ? access : access?.token;
   if (!token) {

@@ -56,6 +56,20 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "baseUrl": { "type": "string", "description": "Custom API base URL" },
+      "api": {
+        "type": "string",
+        "enum": ["google-generative-ai", "vertex-ai"],
+        "default": "google-generative-ai",
+        "description": "Choice of Gemini API: AI Studio or Vertex AI"
+      },
+      "projectId": { "type": "string", "description": "GCP Project ID (required for Vertex AI)" },
+      "region": {
+        "type": "string",
+        "default": "us-central1",
+        "description": "GCP Region (required for Vertex AI)"
+      },
+      "apiKey": { "type": "string", "description": "Gemini API key" },
       "webSearch": {
         "type": "object",
         "additionalProperties": false,

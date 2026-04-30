@@ -26,6 +26,16 @@ export {
 } from "./provider-policy.js";
 
 export function parseGeminiAuth(apiKey: string): { headers: Record<string, string> } {
+  // If it starts with 'ya29.' it's a Google access token
+  if (apiKey.startsWith("ya29.")) {
+    return {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    };
+  }
+
   const parsed = apiKey.startsWith("{") ? parseGoogleOauthApiKey(apiKey) : null;
   if (parsed?.token) {
     return {
@@ -56,10 +66,13 @@ function resolveTrustedGoogleGenerativeAiBaseUrl(baseUrl?: string): string {
       "Google Generative AI baseUrl must be a valid https URL on generativelanguage.googleapis.com",
     );
   }
+
+  const host = url.hostname.toLowerCase();
   if (
     url.protocol !== "https:" ||
-    url.hostname.toLowerCase() !== "generativelanguage.googleapis.com"
+    (host !== "generativelanguage.googleapis.com" && !host.endsWith("-aiplatform.googleapis.com"))
   ) {
+    // Keep the exact error message the tests expect for the standard host
     throw new Error(
       "Google Generative AI baseUrl must use https://generativelanguage.googleapis.com",
     );

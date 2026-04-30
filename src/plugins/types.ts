@@ -371,6 +371,8 @@ export type ProviderPluginCatalog = {
 export type ProviderRuntimeProviderConfig = {
   baseUrl?: string;
   api?: ModelProviderConfig["api"];
+  projectId?: string;
+  region?: string;
   models?: ModelProviderConfig["models"];
   headers?: unknown;
 };
