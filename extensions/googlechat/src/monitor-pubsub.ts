@@ -49,15 +49,12 @@ export async function monitorGoogleChatPubSub(params: {
       getUniverseDomain: () => "googleapis.com",
       getAccessToken: async () => ({ token }),
       getRequestHeaders: async () => {
-        const headers = { Authorization: `Bearer ${token}` };
-        return {
-          ...headers,
-          forEach: (callback: (value: string, key: string, parent: any) => void) => {
-            for (const [key, value] of Object.entries(headers)) {
-              callback(value, key, headers);
-            }
-          }
-        };
+        const h = { Authorization: `Bearer ${token}` };
+        Object.defineProperty(h, 'forEach', {
+          value: (cb: any) => { for (const [k, v] of Object.entries(h)) cb(v, k, h); },
+          enumerable: false
+        });
+        return h;
       },
       getClient: async () => authGodObject,
     };
