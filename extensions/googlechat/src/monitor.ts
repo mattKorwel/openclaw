@@ -378,6 +378,47 @@ async function downloadAttachment(
 
 export function monitorGoogleChatProvider(options: GoogleChatMonitorOptions): () => void {
   const core = getGoogleChatRuntime();
+  const ingestionMode = options.account.config.ingestionMode ?? "webhook";
+  if (ingestionMode === "pubsub") {
+    const abortController = new AbortController();
+    const abort = () => abortController.abort();
+    options.abortSignal.addEventListener("abort", abort, { once: true });
+    if (options.abortSignal.aborted) {
+      abort();
+    }
+
+    void import("./monitor-pubsub.js")
+      .then((mod) =>
+        mod.monitorGoogleChatPubSub({
+          account: options.account,
+          runtime: options.runtime,
+          core,
+          abortSignal: abortController.signal,
+          processEvent: async (event) => {
+            await processGoogleChatEvent(event, {
+              account: options.account,
+              config: options.config,
+              runtime: options.runtime,
+              core,
+              path: "",
+              statusSink: options.statusSink,
+              mediaMaxMb: computeGoogleChatMediaMaxMb({ account: options.account }),
+            });
+          },
+        }),
+      )
+      .catch((err) => {
+        options.runtime.error?.(
+          `[${options.account.accountId}] Pub/Sub monitor failed: ${String(err)}`,
+        );
+      });
+
+    return () => {
+      options.abortSignal.removeEventListener("abort", abort);
+      abortController.abort();
+    };
+  }
+
   const webhookPath = resolveWebhookPath({
     webhookPath: options.webhookPath,
     webhookUrl: options.webhookUrl,

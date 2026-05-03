@@ -5,6 +5,7 @@
   "description": "OpenClaw Google Chat channel plugin",
   "type": "module",
   "dependencies": {
+    "@google-cloud/pubsub": "^4.10.0",
     "gaxios": "7.1.4",
     "google-auth-library": "10.6.2",
     "zod": "^4.3.6"

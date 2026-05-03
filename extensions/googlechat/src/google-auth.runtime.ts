@@ -17,6 +17,7 @@ type GaxiosModule = typeof import("gaxios");
 type GoogleAuthRuntime = {
   Gaxios: GaxiosModule["Gaxios"];
   GoogleAuth: GoogleAuthModule["GoogleAuth"];
+  Impersonated: GoogleAuthModule["Impersonated"];
   OAuth2Client: GoogleAuthModule["OAuth2Client"];
 };
 type GoogleAuthTransport = InstanceType<GaxiosModule["Gaxios"]>;
@@ -488,6 +489,7 @@ export async function loadGoogleAuthRuntime(): Promise<GoogleAuthRuntime> {
         return {
           Gaxios: gaxiosModule.Gaxios,
           GoogleAuth: googleAuthModule.GoogleAuth,
+          Impersonated: googleAuthModule.Impersonated,
           OAuth2Client: googleAuthModule.OAuth2Client,
         };
       } catch (error) {

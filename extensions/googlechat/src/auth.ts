@@ -20,6 +20,7 @@ const MAX_AUTH_CACHE_SIZE = 32;
 type GoogleAuthModule = typeof import("google-auth-library");
 type GoogleAuthRuntime = {
   GoogleAuth: GoogleAuthModule["GoogleAuth"];
+  Impersonated: GoogleAuthModule["Impersonated"];
   OAuth2Client: GoogleAuthModule["OAuth2Client"];
 };
 type GoogleAuthInstance = InstanceType<GoogleAuthRuntime["GoogleAuth"]>;
@@ -55,13 +56,16 @@ async function getVerifyClient(): Promise<OAuth2ClientInstance> {
 }
 
 function buildAuthKey(account: ResolvedGoogleChatAccount): string {
+  let base = "none";
   if (account.credentialsFile) {
-    return `file:${account.credentialsFile}`;
+    base = `file:${account.credentialsFile}`;
+  } else if (account.credentials) {
+    base = `inline:${JSON.stringify(account.credentials)}`;
   }
-  if (account.credentials) {
-    return `inline:${JSON.stringify(account.credentials)}`;
+  if (account.config.clientEmail) {
+    return `${base}:impersonate:${account.config.clientEmail}`;
   }
-  return "none";
+  return base;
 }
 
 async function getAuthInstance(account: ResolvedGoogleChatAccount): Promise<GoogleAuthInstance> {
@@ -100,7 +104,15 @@ export async function getGoogleChatAccessToken(
   account: ResolvedGoogleChatAccount,
 ): Promise<string> {
   const auth = await getAuthInstance(account);
-  const client = await auth.getClient();
+  let client = await auth.getClient();
+  if (account.config.clientEmail && !account.credentialsFile && !account.credentials) {
+    const { Impersonated } = await loadGoogleAuthRuntime();
+    client = new Impersonated({
+      sourceClient: client,
+      targetPrincipal: account.config.clientEmail,
+      targetScopes: [CHAT_SCOPE],
+    });
+  }
   const access = await client.getAccessToken();
   const token = typeof access === "string" ? access : access?.token;
   if (!token) {

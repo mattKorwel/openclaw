@@ -5,7 +5,7 @@ read_when:
 title: "Google Chat"
 ---
 
-Status: ready for DMs + spaces via Google Chat API webhooks (HTTP only).
+Status: ready for DMs + spaces via Google Chat API webhooks or Cloud Pub/Sub ingestion.
 
 ## Quick setup (beginner)
 
@@ -134,6 +134,31 @@ Configure your tunnel's ingress rules to only route the webhook path:
 - **Path**: `/googlechat` -> `http://localhost:18789/googlechat`
 - **Default Rule**: HTTP 404 (Not Found)
 
+## Cloud Pub/Sub Ingestion
+
+Pub/Sub mode lets the gateway receive Google Chat events without exposing a public HTTP webhook. Configure the Google Chat app to publish events to a Pub/Sub topic, create a pull subscription, then point OpenClaw at that subscription.
+
+```json5
+{
+  channels: {
+    googlechat: {
+      enabled: true,
+      ingestionMode: "pubsub",
+      pubsub: {
+        projectId: "my-gcp-project",
+        subscriptionId: "openclaw-googlechat-sub",
+      },
+      // Optional: impersonate this service account when running with ADC.
+      clientEmail: "openclaw-chat@my-gcp-project.iam.gserviceaccount.com",
+    },
+  },
+}
+```
+
+If `pubsub.projectId` or `pubsub.subscriptionId` is omitted, OpenClaw falls back to `GCHAT_PROJECT` and `GCHAT_SUB`.
+
+For local developer or Cloudtop setups, run with Application Default Credentials and set `clientEmail` to impersonate the service account that has Chat/Pub/Sub permissions. Direct `serviceAccount` or `serviceAccountFile` credentials still take precedence and skip impersonation.
+
 ## How it works
 
 1. Google Chat sends webhook POSTs to the gateway. Each request includes an `Authorization: Bearer <token>` header.
@@ -196,6 +221,8 @@ Notes:
 
 - Service account credentials can also be passed inline with `serviceAccount` (JSON string).
 - `serviceAccountRef` is also supported (env/file SecretRef), including per-account refs under `channels.googlechat.accounts.<id>.serviceAccountRef`.
+- `ingestionMode: "pubsub"` uses Cloud Pub/Sub pull subscriptions instead of a public webhook.
+- `clientEmail` enables service-account impersonation when using Application Default Credentials.
 - Default webhook path is `/googlechat` if `webhookPath` isn’t set.
 - `dangerouslyAllowNameMatching` re-enables mutable email principal matching for allowlists (break-glass compatibility mode).
 - Reactions are available via the `reactions` tool and `channels action` when `actions.reactions` is enabled.

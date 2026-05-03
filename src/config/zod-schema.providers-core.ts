@@ -805,11 +805,22 @@ export const GoogleChatGroupSchema = z
   })
   .strict();
 
+const GoogleChatPubSubConfigSchema = z
+  .object({
+    projectId: z.string().optional(),
+    topicId: z.string().optional(),
+    subscriptionId: z.string().optional(),
+  })
+  .strict();
+
 export const GoogleChatAccountSchema = z
   .object({
     name: z.string().optional(),
     capabilities: z.array(z.string()).optional(),
     enabled: z.boolean().optional(),
+    ingestionMode: z.enum(["webhook", "pubsub"]).optional(),
+    pubsub: GoogleChatPubSubConfigSchema.optional(),
+    clientEmail: z.string().optional(),
     configWrites: z.boolean().optional(),
     allowBots: z.boolean().optional(),
     dangerouslyAllowNameMatching: z.boolean().optional(),

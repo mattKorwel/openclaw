@@ -32,6 +32,15 @@ export type GoogleChatActionConfig = {
   reactions?: boolean;
 };
 
+export type GoogleChatPubSubConfig = {
+  /** GCP Project ID where the Pub/Sub resources reside (default: GCHAT_PROJECT). */
+  projectId?: string;
+  /** Pub/Sub topic name or full resource path (projects/.../topics/...). */
+  topicId?: string;
+  /** Pub/Sub subscription name or full resource path (projects/.../subscriptions/...). */
+  subscriptionId?: string;
+};
+
 export type GoogleChatAccountConfig = {
   /** Optional display name for this account (used in CLI/UI lists). */
   name?: string;
@@ -41,6 +50,12 @@ export type GoogleChatAccountConfig = {
   configWrites?: boolean;
   /** If false, do not start this Google Chat account. Default: true. */
   enabled?: boolean;
+  /** Message ingestion mode. Default: webhook. */
+  ingestionMode?: "webhook" | "pubsub";
+  /** Cloud Pub/Sub settings for pubsub ingestion mode. */
+  pubsub?: GoogleChatPubSubConfig;
+  /** Optional service account email to impersonate when using ADC. */
+  clientEmail?: string;
   /** Allow bot-authored messages to trigger replies (default: false). */
   allowBots?: boolean;
   /**
