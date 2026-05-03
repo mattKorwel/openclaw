@@ -27,7 +27,7 @@ import {
 type GoogleTransportModel = Model<"google-generative-ai"> & {
   headers?: Record<string, string>;
   provider: string;
-  googleApiMode?: "google-generative-ai" | "vertex-ai";
+  googleApiMode?: "google-generative-ai" | "google-vertex";
   projectId?: string;
   region?: string;
 };

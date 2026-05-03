@@ -59,7 +59,7 @@
       "baseUrl": { "type": "string", "description": "Custom API base URL" },
       "api": {
         "type": "string",
-        "enum": ["google-generative-ai", "vertex-ai"],
+        "enum": ["google-generative-ai", "google-vertex"],
         "default": "google-generative-ai",
         "description": "Choice of Gemini API: AI Studio or Vertex AI"
       },

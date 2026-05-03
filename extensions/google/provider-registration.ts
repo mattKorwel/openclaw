@@ -11,7 +11,14 @@ import { GOOGLE_GEMINI_PROVIDER_HOOKS } from "./provider-hooks.js";
 import { isModernGoogleModel, resolveGoogleGeminiForwardCompatModel } from "./provider-models.js";
 import { resolveGoogleAdcToken, resolveGoogleMetadataApiKey } from "./src/adc-auth.js";
 
-const GOOGLE_VIRTUAL_ADC_KEY = "google:gcp-adc-virtual-key";
+// Match the canonical marker recognized by isNonSecretApiKeyMarker() in
+// src/agents/model-auth-markers.ts. The previous value
+// ("google:gcp-adc-virtual-key") was treated as a real secret by the auth
+// resolver and propagated as a literal ?key= URL parameter to Vertex,
+// triggering API_KEY_SERVICE_BLOCKED on corp projects. Mirroring the
+// anthropic-vertex provider lets the runtime route through prepareRuntimeAuth
+// for ADC bearer-token resolution.
+const GOOGLE_VIRTUAL_ADC_KEY = "gcp-vertex-credentials";
 
 export function registerGoogleProvider(api: OpenClawPluginApi) {
   api.registerProvider({
@@ -43,8 +50,10 @@ export function registerGoogleProvider(api: OpenClawPluginApi) {
       }),
     ],
     resolveSyntheticAuth: () => {
-      // Synchronously return a virtual key to signal that we want to handle ADC.
-      // This bypasses the async limitation of resolveSyntheticAuth.
+      // Synchronously return a virtual key to signal that we want to handle
+      // ADC. The marker is consumed by `prepareRuntimeAuth` below; for AI
+      // Studio it gets swapped for a real token, for Vertex it gets swapped
+      // for a bracketed placeholder so pi-ai falls into its ADC code path.
       return {
         apiKey: GOOGLE_VIRTUAL_ADC_KEY,
         mode: "token",
@@ -56,7 +65,25 @@ export function registerGoogleProvider(api: OpenClawPluginApi) {
         return undefined;
       }
 
-      // Now we are in an async hook, resolve the real token.
+      // For Vertex AI (api === "google-vertex"), the underlying transport
+      // (pi-ai's streamGoogleVertex via @google/genai) does its own ADC
+      // bootstrap from GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION + ambient
+      // ADC. If we hand it a real bearer token, it (incorrectly) treats the
+      // value as a Vertex API key and forwards it as ?key=, which Vertex
+      // rejects with API_KEY_SERVICE_BLOCKED / CREDENTIALS_MISSING. Instead,
+      // return a bracketed placeholder so pi-ai's isPlaceholderApiKey
+      // (regex /^<[^>]+>$/) returns true and the transport falls into the
+      // ADC code path. The runtime SA on the host must be able to mint ADC
+      // tokens for the configured project, and GOOGLE_CLOUD_PROJECT +
+      // GOOGLE_CLOUD_LOCATION must be set in the process env.
+      const modelApi = (ctx?.model as { api?: string } | undefined)?.api;
+      if (modelApi === "google-vertex") {
+        return { apiKey: "<gcp-vertex-adc>" };
+      }
+
+      // AI Studio path (api === "google-generative-ai"): fetch a real key
+      // or ADC bearer and return it for the standard ?key= /
+      // Authorization: Bearer flow.
       const metadataApiKey = await resolveGoogleMetadataApiKey();
       if (metadataApiKey) {
         return { apiKey: metadataApiKey };

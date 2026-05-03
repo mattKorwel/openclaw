@@ -333,7 +333,7 @@ export const ModelProviderSchema = z
     auth: z
       .union([z.literal("api-key"), z.literal("aws-sdk"), z.literal("oauth"), z.literal("token")])
       .optional(),
-    api: z.union([ModelApiSchema, z.literal("vertex-ai")]).optional(),
+    api: z.union([ModelApiSchema, z.literal("google-vertex")]).optional(),
     projectId: z.string().optional(),
     region: z.string().optional(),
     injectNumCtxForOpenAICompat: z.boolean().optional(),
