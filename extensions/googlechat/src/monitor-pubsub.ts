@@ -145,39 +145,47 @@ async function openSubscription(
 ): Promise<{ pubsub: PubSub; subscription: Subscription }> {
   const { account, core, runtime, config, mediaMaxMb } = params;
 
-  // Always fetch a FRESH AuthClient. The client manages its own token
-  // lifetime: ADC clients refresh from the metadata server, Impersonated
-  // clients refresh via IAM Credentials API. Pub/Sub will call
-  // authClient.getRequestHeaders() per RPC and pick up the rotated token.
+  // Two auth paths, picked by config:
+  //
+  //   (a) clientEmail set → cross-project impersonation. We must inject our
+  //       Impersonated AuthClient because pubsub's bundled ADC (its own
+  //       nested google-auth-library v9.x) cannot perform impersonation.
+  //
+  //   (b) clientEmail unset → plain ADC. Defer to pubsub's bundled
+  //       google-auth-library v9.x; it'll resolve credentials from the GCE
+  //       metadata server and refresh them on its own. We deliberately do
+  //       NOT inject our root v10 client here because the major-version
+  //       mismatch between root v10 and pubsub-bundled v9 means gax can't
+  //       successfully consume our wrapper (request goes out unauthenticated
+  //       and the server returns code: 7 / PERMISSION_DENIED "unregistered
+  //       callers").
   //
   // Historical note: a previous version snapshotted a single access token at
   // startup via a hand-rolled "auth god object" shim. That made the streaming
   // pull die with code: 16 / UNAUTHENTICATED ~1hr after start when the token
   // expired and was never refreshed. Do not reintroduce that pattern.
-  const authClient = await getGoogleAuthClient(account, [CLOUD_PLATFORM_SCOPE]);
+  const needsImpersonation = !!account.config.clientEmail;
 
-  // Wrap the live AuthClient in a GoogleAuth shell. Pub/Sub only ever calls
-  // `auth.getClient()` and then delegates token refresh to that client, so
-  // the wrapper transparently surfaces our refreshing AuthClient (Impersonated
-  // or ADC) without snapshotting any token.
-  //
-  // The cast is required only because the repo currently resolves two copies
-  // of google-auth-library (root at 10.x and a nested one under
-  // @anthropic-ai/vertex-sdk). The two copies have nominally distinct
-  // GoogleAuth classes (private brand check), so we cast at the boundary
-  // where the constructed object enters the Pub/Sub API. Structurally sound
-  // at runtime — `getClient()` returns the same live AuthClient.
-  const auth = new GoogleAuth({
-    authClient,
-    projectId,
-    scopes: [CLOUD_PLATFORM_SCOPE],
-  });
-
-  const pubsub = new PubSub({
-    projectId,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    auth: auth as any,
-  });
+  let pubsub: PubSub;
+  if (needsImpersonation) {
+    const authClient = await getGoogleAuthClient(account, [CLOUD_PLATFORM_SCOPE]);
+    const auth = new GoogleAuth({
+      authClient,
+      projectId,
+      scopes: [CLOUD_PLATFORM_SCOPE],
+    });
+    pubsub = new PubSub({
+      projectId,
+      // Cast: pubsub bundles its own (older) google-auth-library; its
+      // ClientConfig.auth references that nested GoogleAuth class which is
+      // nominally distinct from our root v10 class. Structurally compatible
+      // at runtime for the impersonation flow.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      auth: auth as any,
+    });
+  } else {
+    pubsub = new PubSub({ projectId });
+  }
 
   logVerbose(core, runtime, `Pub/Sub client initialized for project: ${projectId}`);
 
