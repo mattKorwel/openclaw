@@ -9,6 +9,7 @@ const subscriptionMock = {
 
 const pubsubInstanceMock = {
   subscription: vi.fn().mockReturnValue(subscriptionMock),
+  close: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("@google-cloud/pubsub", () => {
@@ -17,6 +18,7 @@ vi.mock("@google-cloud/pubsub", () => {
       MockPubSub.constructorSpy();
     }
     subscription = pubsubInstanceMock.subscription;
+    close = pubsubInstanceMock.close;
     static constructorSpy = vi.fn();
   }
   return {
@@ -34,9 +36,14 @@ vi.mock("./monitor-shared.js", () => ({
   computeGoogleChatMediaMaxMb: () => 20,
 }));
 
+// Mock a minimal AuthClient — the real client is passed straight through to
+// `new PubSub({ authClient })` and is consulted per-RPC for fresh headers.
 vi.mock("./auth.js", () => ({
   getGoogleAuthClient: vi.fn().mockResolvedValue({
     getAccessToken: vi.fn().mockResolvedValue({ token: "test-token" }),
+    getRequestHeaders: vi.fn().mockResolvedValue({
+      Authorization: "Bearer test-token",
+    }),
   }),
 }));
 
@@ -99,7 +106,9 @@ describe("monitor-pubsub", () => {
     expect(mockMessage.ack).toHaveBeenCalled();
 
     abortController.abort();
-    expect(subscriptionMock.close).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(subscriptionMock.close).toHaveBeenCalled();
+    });
   });
 
   it("should handle invalid JSON message data", async () => {
