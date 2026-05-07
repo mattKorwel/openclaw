@@ -194,8 +194,17 @@ function buildGoogleRequestUrl(model: GoogleTransportModel, apiKey?: string): st
     const project = process.env.GOOGLE_CLOUD_PROJECT || "mjk-local-gchat-testing";
     const region = process.env.GOOGLE_CLOUD_REGION || "us-central1";
 
+    // Vertex's multi-region "global" endpoint omits the region prefix
+    // on the hostname (it's `aiplatform.googleapis.com`, NOT
+    // `global-aiplatform.googleapis.com` — the latter doesn't exist
+    // and returns a DNS/404 error). Path still uses
+    // `locations/global`. This special-case is required for preview
+    // Gemini models (e.g. gemini-3.1-flash-lite-preview) that ship on
+    // `global` before regional rollout.
+    const hostPrefix = region === "global" ? "" : `${region}-`;
+
     // Vertex AI URL format (streaming)
-    return `https://${region}-aiplatform.googleapis.com/v1/projects/${project}/locations/${region}/publishers/google/${resolveGoogleModelPath(model.id)}:streamGenerateContent?alt=sse`;
+    return `https://${hostPrefix}aiplatform.googleapis.com/v1/projects/${project}/locations/${region}/publishers/google/${resolveGoogleModelPath(model.id)}:streamGenerateContent?alt=sse`;
   }
 
   return `${baseUrl}/${resolveGoogleModelPath(model.id)}:streamGenerateContent?alt=sse`;
